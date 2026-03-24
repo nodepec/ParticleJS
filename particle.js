@@ -5,6 +5,7 @@
     root.ParticleJS = factory();
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+
   const MathUtils = {
     lerp: (a, b, t) => a + (b - a) * t,
     clamp: (v, min, max) => Math.min(Math.max(v, min), max),
@@ -43,10 +44,11 @@
       };
     })()
   };
+
   const Color = {
     parse: (color) => {
       if (Array.isArray(color)) return { r: color[0], g: color[1], b: color[2], a: color[3] ?? 1 };
-      if (typeof color === 'object' && 'r' in color) return color;
+      if (typeof color === 'object' && color !== null && 'r' in color) return color;
       const el = document.createElement('div');
       el.style.color = color;
       document.body.appendChild(el);
@@ -80,18 +82,20 @@
           return p;
         };
         const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1 / 3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1 / 3);
+        const pp = 2 * l - q;
+        r = hue2rgb(pp, q, h + 1 / 3);
+        g = hue2rgb(pp, q, h);
+        b = hue2rgb(pp, q, h - 1 / 3);
       }
       return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255), a: 1 };
     }
   };
+
   class Particle {
     constructor(config) {
       this.reset(config);
     }
+
     reset(config) {
       this.x = config.x ?? 0;
       this.y = config.y ?? 0;
@@ -103,14 +107,16 @@
       this.maxLife = this.life;
       this.alive = true;
       this.size = config.size ?? 4;
-      this.startSize = this.size;
+      this.startSize = config.startSize ?? this.size;
       this.endSize = config.endSize ?? 0;
       this.rotation = config.rotation ?? 0;
       this.rotationSpeed = config.rotationSpeed ?? 0;
       this.mass = config.mass ?? 1;
       this.drag = config.drag ?? 0.99;
       this.bounce = config.bounce ?? 0;
-      this.colorStops = config.colorStops ?? [{ r: 255, g: 255, b: 255, a: 1 }];
+      this.colorStops = (config.colorStops && config.colorStops.length)
+        ? config.colorStops
+        : [{ r: 255, g: 255, b: 255, a: 1 }];
       this.shape = config.shape ?? 'circle';
       this.customDraw = config.customDraw ?? null;
       this.blendMode = config.blendMode ?? 'source-over';
@@ -123,11 +129,11 @@
       this.turbulenceScale = config.turbulenceScale ?? 0.005;
       this.noiseOffset = Math.random() * 1000;
       this.image = config.image ?? null;
-      this.imageRotate = config.imageRotate ?? false;
       this.data = config.data ?? {};
-      this._id = Math.random();
     }
+
     get progress() { return 1 - (this.life / this.maxLife); }
+
     get currentColor() {
       if (this.colorStops.length === 1) return this.colorStops[0];
       const t = this.progress;
@@ -138,17 +144,19 @@
       const b = this.colorStops[Math.min(idx + 1, this.colorStops.length - 1)];
       return Color.lerp(a, b, localT);
     }
+
     get currentSize() {
       return MathUtils.lerp(this.startSize, this.endSize, this.progress);
     }
+
     update(dt, forces, system) {
       if (!this.alive) return;
       this.life -= dt;
       if (this.life <= 0) { this.alive = false; return; }
+
       this.ax = 0; this.ay = 0;
-      for (const force of forces) {
-        force.apply(this, system);
-      }
+      for (const force of forces) force.apply(this, system);
+
       if (this.turbulence > 0) {
         const t = system.time * 0.001;
         const nx = MathUtils.noise((this.x * this.turbulenceScale) + this.noiseOffset, t);
@@ -156,43 +164,49 @@
         this.ax += nx * this.turbulence;
         this.ay += ny * this.turbulence;
       }
+
       this.vx = (this.vx + this.ax * dt) * Math.pow(this.drag, dt * 60);
       this.vy = (this.vy + this.ay * dt) * Math.pow(this.drag, dt * 60);
       this.x += this.vx * dt * 60;
       this.y += this.vy * dt * 60;
       this.rotation += this.rotationSpeed * dt;
+
       if (this.trail) {
         this.trailPositions.unshift({ x: this.x, y: this.y });
         if (this.trailPositions.length > this.trailLength) this.trailPositions.pop();
       }
     }
+
     draw(ctx) {
       if (!this.alive) return;
       const color = this.currentColor;
       const size = this.currentSize;
       if (size <= 0) return;
+
       ctx.save();
       ctx.globalCompositeOperation = this.blendMode;
+
       if (this.trail && this.trailPositions.length > 1) {
         ctx.beginPath();
         ctx.moveTo(this.x, this.y);
         for (let i = 0; i < this.trailPositions.length; i++) {
-          const tp = this.trailPositions[i];
-          const ta = (1 - i / this.trailPositions.length) * color.a * 0.5;
-          ctx.lineTo(tp.x, tp.y);
+          ctx.lineTo(this.trailPositions[i].x, this.trailPositions[i].y);
         }
         ctx.strokeStyle = Color.toRgba(color, color.a * 0.3);
         ctx.lineWidth = size * 0.5;
         ctx.stroke();
       }
+
       if (this.glowSize > 0) {
         ctx.shadowBlur = this.glowSize;
         ctx.shadowColor = this.glowColor ? Color.toRgba(this.glowColor) : Color.toRgba(color);
       }
+
       ctx.translate(this.x, this.y);
       ctx.rotate(this.rotation);
       ctx.fillStyle = Color.toRgba(color);
       ctx.strokeStyle = Color.toRgba(color);
+
       if (this.image) {
         ctx.drawImage(this.image, -size / 2, -size / 2, size, size);
       } else if (this.customDraw) {
@@ -202,6 +216,7 @@
       }
       ctx.restore();
     }
+
     _drawShape(ctx, size) {
       const r = size / 2;
       ctx.beginPath();
@@ -257,32 +272,28 @@
       }
     }
   }
+
   class Force {
-    apply(particle, system) { }
+    apply(particle, system) {}
     clone() { return Object.assign(Object.create(Object.getPrototypeOf(this)), this); }
   }
+
   class GravityForce extends Force {
     constructor(gx = 0, gy = 9.8) { super(); this.gx = gx; this.gy = gy; }
     apply(p) { p.ax += this.gx / p.mass; p.ay += this.gy / p.mass; }
   }
+
   class WindForce extends Force {
-    constructor(strength = 1, angle = 0) {
-      super();
-      this.strength = strength;
-      this.angle = angle; 
-    }
+    constructor(strength = 1, angle = 0) { super(); this.strength = strength; this.angle = angle; }
     apply(p) {
       p.ax += Math.cos(this.angle) * this.strength / p.mass;
       p.ay += Math.sin(this.angle) * this.strength / p.mass;
     }
   }
+
   class AttractorForce extends Force {
     constructor(x, y, strength = 100, radius = 200, falloff = 'linear') {
-      super();
-      this.x = x; this.y = y;
-      this.strength = strength;
-      this.radius = radius;
-      this.falloff = falloff; 
+      super(); this.x = x; this.y = y; this.strength = strength; this.radius = radius; this.falloff = falloff;
     }
     apply(p) {
       const dx = this.x - p.x, dy = this.y - p.y;
@@ -295,6 +306,7 @@
       p.ay += (dy / d) * factor;
     }
   }
+
   class RepellerForce extends AttractorForce {
     apply(p) {
       const dx = this.x - p.x, dy = this.y - p.y;
@@ -307,12 +319,10 @@
       p.ay -= (dy / d) * factor;
     }
   }
+
   class VortexForce extends Force {
     constructor(x, y, strength = 50, radius = 200) {
-      super();
-      this.x = x; this.y = y;
-      this.strength = strength;
-      this.radius = radius;
+      super(); this.x = x; this.y = y; this.strength = strength; this.radius = radius;
     }
     apply(p) {
       const dx = this.x - p.x, dy = this.y - p.y;
@@ -323,17 +333,19 @@
       p.ay += (dx / d) * factor;
     }
   }
+
   class BuoyancyForce extends Force {
     constructor(density = 0.5, gy = 9.8) { super(); this.density = density; this.gy = gy; }
     apply(p) { p.ay -= this.gy * this.density; }
   }
+
   class Emitter {
     constructor(config = {}) {
       this.x = config.x ?? 0;
       this.y = config.y ?? 0;
       this.active = config.active ?? true;
-      this.rate = config.rate ?? 30;         
-      this.burst = config.burst ?? 0;        
+      this.rate = config.rate ?? 30;
+      this.burst = config.burst ?? 0;
       this.duration = config.duration ?? Infinity;
       this.elapsed = 0;
       this._accumulator = 0;
@@ -342,11 +354,13 @@
       this.randomizers = config.randomizers ?? {};
       this.spread = config.spread ?? 0;
     }
+
     _spawnPosition() {
       const angle = Math.random() * Math.PI * 2;
       const r = Math.random() * this.spread;
       return { x: this.x + Math.cos(angle) * r, y: this.y + Math.sin(angle) * r };
     }
+
     _buildParticleConfig() {
       const cfg = Object.assign({}, this.template);
       const pos = this._spawnPosition();
@@ -355,19 +369,22 @@
       for (const [key, fn] of Object.entries(this.randomizers)) {
         cfg[key] = fn(cfg[key]);
       }
-      if (cfg.colorStops) {
-        cfg.colorStops = cfg.colorStops.map(c => typeof c === 'string' ? Color.parse(c) : c);
+      if (cfg.colorStops && Array.isArray(cfg.colorStops)) {
+        cfg.colorStops = cfg.colorStops.map(c => (typeof c === 'string') ? Color.parse(c) : c);
       }
       return cfg;
     }
+
     update(dt, pool) {
       if (!this.active) return;
       this.elapsed += dt;
       if (this.elapsed > this.duration) { this.active = false; return; }
+
       if (!this._bursted && this.burst > 0) {
         for (let i = 0; i < this.burst; i++) pool.push(new Particle(this._buildParticleConfig()));
         this._bursted = true;
       }
+
       if (this.rate > 0) {
         this._accumulator += dt * this.rate;
         while (this._accumulator >= 1) {
@@ -376,7 +393,12 @@
         }
       }
     }
+
+    get isExpired() {
+      return !this.active || (this.elapsed > this.duration);
+    }
   }
+
   class LineEmitter extends Emitter {
     constructor(config = {}) {
       super(config);
@@ -385,12 +407,10 @@
     }
     _spawnPosition() {
       const t = Math.random();
-      return {
-        x: MathUtils.lerp(this.x, this.x2, t),
-        y: MathUtils.lerp(this.y, this.y2, t)
-      };
+      return { x: MathUtils.lerp(this.x, this.x2, t), y: MathUtils.lerp(this.y, this.y2, t) };
     }
   }
+
   class RectEmitter extends Emitter {
     constructor(config = {}) {
       super(config);
@@ -404,6 +424,7 @@
       };
     }
   }
+
   class CircleEmitter extends Emitter {
     constructor(config = {}) {
       super(config);
@@ -416,6 +437,7 @@
       return { x: this.x + Math.cos(angle) * r, y: this.y + Math.sin(angle) * r };
     }
   }
+
   const Behaviors = {
     bounceEdges: (padding = 0) => (p, system) => {
       const { width, height } = system;
@@ -433,9 +455,10 @@
     },
     killEdges: (padding = 50) => (p, system) => {
       if (p.x < -padding || p.x > system.width + padding ||
-        p.y < -padding || p.y > system.height + padding) p.alive = false;
+          p.y < -padding || p.y > system.height + padding) p.alive = false;
     },
   };
+
   const Presets = {
     fire: (x, y, options = {}) => ({
       emitter: {
@@ -456,9 +479,9 @@
             turbulence: options.turbulence ?? 0.4,
             turbulenceScale: 0.008,
             colorStops: [
-              { r: 255, g: 60, b: 0, a: 0 },
-              { r: 255, g: 140, b: 20, a: 0.9 },
-              { r: 255, g: 230, b: 80, a: 0.7 },
+              { r: 255, g: 60,  b: 0,   a: 0   },
+              { r: 255, g: 140, b: 20,  a: 0.9 },
+              { r: 255, g: 230, b: 80,  a: 0.7 },
               { r: 200, g: 200, b: 200, a: 0.0 },
             ],
           },
@@ -471,11 +494,9 @@
           },
         }
       },
-      forces: [
-        new GravityForce(0, -3),
-        new WindForce(options.wind ?? 0.1, 0),
-      ],
+      forces: [new GravityForce(0, -3), new WindForce(options.wind ?? 0.1, 0)],
     }),
+
     smoke: (x, y, options = {}) => ({
       emitter: {
         type: 'circle',
@@ -487,17 +508,16 @@
             life: options.life ?? 4,
             startSize: options.size ?? 30,
             endSize: 80,
-            vx: 0, vy: 0,
             drag: 0.992,
             shape: 'circle',
             blendMode: 'source-over',
             turbulence: 0.2,
             turbulenceScale: 0.004,
             colorStops: [
-              { r: 80, g: 80, b: 80, a: 0 },
+              { r: 80,  g: 80,  b: 80,  a: 0   },
               { r: 100, g: 100, b: 100, a: 0.4 },
               { r: 150, g: 150, b: 150, a: 0.2 },
-              { r: 180, g: 180, b: 180, a: 0 },
+              { r: 180, g: 180, b: 180, a: 0   },
             ],
           },
           randomizers: {
@@ -511,6 +531,7 @@
       },
       forces: [new GravityForce(0, -0.5)],
     }),
+
     sparkle: (x, y, options = {}) => ({
       emitter: {
         type: 'circle',
@@ -546,12 +567,13 @@
       },
       forces: [new GravityForce(0, 0.3)],
     }),
-    snow: (width, options = {}) => ({
+
+    snow: (x, y, options = {}) => ({
       emitter: {
         type: 'line',
         config: {
           x: 0, y: -10,
-          x2: width, y2: -10,
+          x2: options.width ?? 800, y2: -10,
           rate: options.rate ?? 30,
           template: {
             life: options.life ?? 8,
@@ -563,9 +585,9 @@
             turbulence: 0.15,
             turbulenceScale: 0.003,
             colorStops: [
-              { r: 220, g: 235, b: 255, a: 0 },
+              { r: 220, g: 235, b: 255, a: 0   },
               { r: 255, g: 255, b: 255, a: 0.9 },
-              { r: 200, g: 220, b: 255, a: 0 },
+              { r: 200, g: 220, b: 255, a: 0   },
             ],
           },
           randomizers: {
@@ -577,11 +599,9 @@
           },
         }
       },
-      forces: [
-        new GravityForce(0, 0.5),
-        new WindForce(options.wind ?? 0.15, 0),
-      ],
+      forces: [new GravityForce(0, 0.5), new WindForce(options.wind ?? 0.15, 0)],
     }),
+
     confetti: (x, y, options = {}) => ({
       emitter: {
         type: 'point',
@@ -597,7 +617,6 @@
             bounce: 0.4,
             shape: 'square',
             blendMode: 'source-over',
-            colorStops: null, 
           },
           randomizers: {
             vx: () => MathUtils.rand(-8, 8),
@@ -606,25 +625,20 @@
             startSize: v => v * MathUtils.rand(0.5, 1.5),
             rotationSpeed: () => MathUtils.rand(-8, 8),
             rotation: () => Math.random() * Math.PI * 2,
-            colorStops: () => {
-              const colors = [
-                [{ r: 255, g: 80, b: 80, a: 1 }, { r: 255, g: 80, b: 80, a: 0 }],
-                [{ r: 255, g: 200, b: 50, a: 1 }, { r: 255, g: 200, b: 50, a: 0 }],
-                [{ r: 80, g: 200, b: 120, a: 1 }, { r: 80, g: 200, b: 120, a: 0 }],
-                [{ r: 100, g: 150, b: 255, a: 1 }, { r: 100, g: 150, b: 255, a: 0 }],
-                [{ r: 220, g: 100, b: 255, a: 1 }, { r: 220, g: 100, b: 255, a: 0 }],
-              ];
-              return MathUtils.randItem(colors);
-            },
+            colorStops: () => MathUtils.randItem([
+              [{ r: 255, g: 80,  b: 80,  a: 1 }, { r: 255, g: 80,  b: 80,  a: 0 }],
+              [{ r: 255, g: 200, b: 50,  a: 1 }, { r: 255, g: 200, b: 50,  a: 0 }],
+              [{ r: 80,  g: 200, b: 120, a: 1 }, { r: 80,  g: 200, b: 120, a: 0 }],
+              [{ r: 100, g: 150, b: 255, a: 1 }, { r: 100, g: 150, b: 255, a: 0 }],
+              [{ r: 220, g: 100, b: 255, a: 1 }, { r: 220, g: 100, b: 255, a: 0 }],
+            ]),
           },
         }
       },
-      forces: [
-        new GravityForce(0, 8),
-        new WindForce(options.wind ?? 0.1, 0),
-      ],
+      forces: [new GravityForce(0, 8), new WindForce(options.wind ?? 0.1, 0)],
       behaviors: [Behaviors.bounceEdges(0)],
     }),
+
     galaxy: (x, y, options = {}) => ({
       emitter: {
         type: 'circle',
@@ -644,23 +658,23 @@
             trail: true,
             trailLength: 8,
             colorStops: [
-              { r: 100, g: 120, b: 255, a: 0 },
+              { r: 100, g: 120, b: 255, a: 0   },
               { r: 180, g: 160, b: 255, a: 0.9 },
               { r: 255, g: 220, b: 255, a: 0.4 },
-              { r: 255, g: 255, b: 255, a: 0 },
+              { r: 255, g: 255, b: 255, a: 0   },
             ],
           },
           randomizers: {
             life: v => v * MathUtils.rand(0.5, 1.5),
             startSize: v => v * MathUtils.rand(0.5, 2),
-            colorStops: (stops) => {
+            colorStops: () => {
               const hue = MathUtils.rand(200, 320);
               const c = Color.hsl2rgb(hue, 80, 70);
               return [
-                { r: c.r, g: c.g, b: c.b, a: 0 },
+                { r: c.r, g: c.g, b: c.b, a: 0   },
                 { r: c.r, g: c.g, b: c.b, a: 0.9 },
                 { r: 255, g: 255, b: 255, a: 0.2 },
-                { r: c.r, g: c.g, b: c.b, a: 0 },
+                { r: c.r, g: c.g, b: c.b, a: 0   },
               ];
             },
           },
@@ -673,6 +687,7 @@
         system.addForce(new AttractorForce(x, y, options.attraction ?? 5, options.radius ?? 220, 'quadratic'));
       },
     }),
+
     explosion: (x, y, options = {}) => ({
       emitter: {
         type: 'circle',
@@ -692,9 +707,9 @@
             trail: true,
             trailLength: 6,
             colorStops: [
-              { r: 255, g: 240, b: 80, a: 1 },
-              { r: 255, g: 100, b: 20, a: 0.8 },
-              { r: 150, g: 50, b: 10, a: 0 },
+              { r: 255, g: 240, b: 80,  a: 1   },
+              { r: 255, g: 100, b: 20,  a: 0.8 },
+              { r: 150, g: 50,  b: 10,  a: 0   },
             ],
           },
           randomizers: {
@@ -709,6 +724,7 @@
       },
       forces: [new GravityForce(0, 2)],
     }),
+
     bubbles: (x, y, options = {}) => ({
       emitter: {
         type: 'circle',
@@ -725,9 +741,9 @@
             blendMode: 'source-over',
             turbulence: 0.1,
             colorStops: [
-              { r: 120, g: 200, b: 255, a: 0 },
+              { r: 120, g: 200, b: 255, a: 0   },
               { r: 180, g: 230, b: 255, a: 0.6 },
-              { r: 255, g: 255, b: 255, a: 0 },
+              { r: 255, g: 255, b: 255, a: 0   },
             ],
           },
           randomizers: {
@@ -742,6 +758,7 @@
       forces: [new BuoyancyForce(0.8, 5)],
     }),
   };
+
   class ParticleSystem {
     constructor(canvas, options = {}) {
       this.canvas = typeof canvas === 'string' ? document.querySelector(canvas) : canvas;
@@ -761,7 +778,7 @@
       this._raf = null;
       this._lastTime = null;
       this.stats = { fps: 0, particles: 0, emitters: 0 };
-      this._fpsSmooth = 0;
+      this._fpsSmooth = 60;
       if (options.autoResize) this._setupResize();
       this.pointer = { x: -9999, y: -9999, down: false };
       if (options.trackPointer) this._setupPointer();
@@ -769,63 +786,62 @@
       this.onBeforeDraw = options.onBeforeDraw ?? null;
       this.onAfterDraw = options.onAfterDraw ?? null;
     }
+
     start() {
       if (this.running) return this;
       this.running = true;
+      this._lastTime = null;
       this._raf = requestAnimationFrame(this._loop.bind(this));
       return this;
     }
+
     stop() {
       this.running = false;
       if (this._raf) cancelAnimationFrame(this._raf);
       return this;
     }
-    clear() {
-      this.particles = [];
-      this.emitters = [];
-      return this;
-    }
+
+    clear() { this.particles = []; this.emitters = []; return this; }
     clearParticles() { this.particles = []; return this; }
     clearEmitters() { this.emitters = []; return this; }
     clearForces() { this.forces = []; return this; }
+
     destroy() {
       this.stop();
       this._removePointer?.();
       this._removeResize?.();
-      this.particles = [];
-      this.emitters = [];
-      this.forces = [];
+      this.particles = []; this.emitters = []; this.forces = [];
     }
+
     addEmitter(emitter) { this.emitters.push(emitter); return emitter; }
     removeEmitter(emitter) { this.emitters = this.emitters.filter(e => e !== emitter); return this; }
+
     createEmitter(type = 'point', config = {}) {
-      const EmitterClass = { point: Emitter, line: LineEmitter, rect: RectEmitter, circle: CircleEmitter }[type] ?? Emitter;
-      return this.addEmitter(new EmitterClass(config));
+      const cls = { point: Emitter, line: LineEmitter, rect: RectEmitter, circle: CircleEmitter }[type] ?? Emitter;
+      return this.addEmitter(new cls(config));
     }
+
     addForce(force) { this.forces.push(force); return force; }
     removeForce(force) { this.forces = this.forces.filter(f => f !== force); return this; }
     addBehavior(fn) { this.behaviors.push(fn); return this; }
+
     usePreset(name, x, y, options = {}) {
       if (!Presets[name]) throw new Error(`ParticleJS: Unknown preset "${name}"`);
       const def = Presets[name](x, y, options);
       if (!def) return this;
-      if (def.emitter) {
-        const em = this.createEmitter(def.emitter.type ?? 'point', def.emitter.config);
-      }
+      if (def.emitter) this.createEmitter(def.emitter.type ?? 'point', def.emitter.config);
       if (def.forces) def.forces.forEach(f => this.addForce(f));
       if (def.behaviors) def.behaviors.forEach(b => this.addBehavior(b));
       if (def.onInit) def.onInit(this);
       return this;
     }
-    usePresetNamed(name, ...args) {
-      return this.usePreset(name, ...args);
-    }
+
     burst(x, y, config = {}) {
       const count = config.count ?? 30;
       for (let i = 0; i < count && this.particles.length < this.maxParticles; i++) {
-        const angle = (config.angle ?? Math.random() * Math.PI * 2);
         const spread = config.spread ?? Math.PI * 2;
-        const a = angle - spread / 2 + Math.random() * spread;
+        const baseAngle = config.angle ?? 0;
+        const a = baseAngle - spread / 2 + Math.random() * spread;
         const speed = MathUtils.rand(config.minSpeed ?? 1, config.maxSpeed ?? 8);
         this.particles.push(new Particle({
           x, y,
@@ -845,26 +861,37 @@
       }
       return this;
     }
+
     _loop(ts) {
       if (!this.running) return;
       this._raf = requestAnimationFrame(this._loop.bind(this));
-      if (!this._lastTime) this._lastTime = ts;
+
+      if (this._lastTime === null) {
+        this._lastTime = ts;
+        return;
+      }
+
       let dt = (ts - this._lastTime) / 1000;
       this._lastTime = ts;
-      dt = Math.min(dt, 0.05); 
+      dt = Math.min(dt, 0.05);
+      if (dt <= 0) return;
+
       this.time = ts;
       const fps = 1 / dt;
       this._fpsSmooth = this._fpsSmooth * 0.9 + fps * 0.1;
       this.stats.fps = Math.round(this._fpsSmooth);
+
       this._update(dt);
       this._draw();
       if (this.onUpdate) this.onUpdate(dt, this);
     }
+
     _update(dt) {
       for (const em of this.emitters) {
         if (this.particles.length < this.maxParticles) em.update(dt, this.particles);
       }
-      this.emitters = this.emitters.filter(em => em.active || em.particles > 0);
+      this.emitters = this.emitters.filter(em => em.active);
+
       for (const p of this.particles) {
         p.update(dt, this.forces, this);
         for (const b of this.behaviors) b(p, this);
@@ -873,11 +900,13 @@
       this.stats.particles = this.particles.length;
       this.stats.emitters = this.emitters.length;
     }
+
     _draw() {
       const ctx = this.ctx;
       const { width, height } = this.canvas;
-      if (this.onBeforeDraw) { this.onBeforeDraw(ctx, this); }
-      else if (this.background) {
+      if (this.onBeforeDraw) {
+        this.onBeforeDraw(ctx, this);
+      } else if (this.background) {
         ctx.globalAlpha = this.backgroundAlpha;
         ctx.fillStyle = this.background;
         ctx.fillRect(0, 0, width, height);
@@ -888,12 +917,14 @@
       for (const p of this.particles) p.draw(ctx);
       if (this.onAfterDraw) this.onAfterDraw(ctx, this);
     }
+
     resize(w, h) {
       this.canvas.width = w;
       this.canvas.height = h;
       this.width = w;
       this.height = h;
     }
+
     _setupResize() {
       const fn = () => {
         const parent = this.canvas.parentElement;
@@ -903,11 +934,11 @@
       fn();
       this._removeResize = () => window.removeEventListener('resize', fn);
     }
+
     _setupPointer() {
       const rect = () => this.canvas.getBoundingClientRect();
       const move = (e) => {
-        const r = rect();
-        const src = e.touches ? e.touches[0] : e;
+        const r = rect(), src = e.touches ? e.touches[0] : e;
         this.pointer.x = src.clientX - r.left;
         this.pointer.y = src.clientY - r.top;
       };
@@ -925,6 +956,7 @@
       };
     }
   }
+
   return {
     ParticleSystem,
     Particle,
