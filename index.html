@@ -1,364 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ParticleJS — Advanced Particle Engine</title>
-<style>
-  :root {
-    --bg: #040608;
-    --surface: #0a0d12;
-    --border: rgba(80,140,255,0.12);
-    --accent: #3d8eff;
-    --text: #c8d8f0;
-    --text-dim: #4a6080;
-  }
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  html { height: 100%; overflow: hidden; }
-
-  body {
-    height: 100vh;
-    overflow: hidden;
-    background: var(--bg);
-    color: var(--text);
-    font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
-    display: flex;
-    flex-direction: column;
-  }
-
-  header {
-    flex: 0 0 50px;
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-    gap: 20px;
-    z-index: 10;
-    overflow: hidden;
-  }
-
-  .logo {
-    font-size: 12px;
-    color: var(--accent);
-    letter-spacing: 0.1em;
-    white-space: nowrap;
-  }
-
-  .logo em { color: var(--text-dim); font-style: normal; font-size: 10px; }
-
-  .hdiv { width: 1px; height: 18px; background: var(--border); flex-shrink: 0; }
-
-  .stats { display: flex; gap: 18px; font-size: 10px; }
-  .stat { display: flex; gap: 5px; }
-  .sl { color: var(--text-dim); }
-  .sv { color: var(--accent); min-width: 32px; }
-  #sfps .sv { color: #2dff8a; }
-
-  .main {
-    flex: 1 1 0;
-    min-height: 0;
-    display: flex;
-    overflow: hidden;
-  }
-
-  .canvas-wrap {
-    flex: 1 1 0;
-    min-width: 0;
-    position: relative;
-    overflow: hidden;
-    background: var(--bg);
-  }
-
-  canvas {
-    display: block;
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    cursor: crosshair;
-  }
-
-  .hint {
-    position: absolute;
-    bottom: 12px; left: 12px;
-    font-size: 10px;
-    color: var(--text-dim);
-    letter-spacing: 0.06em;
-    pointer-events: none;
-  }
-
-  .sidebar {
-    flex: 0 0 260px;
-    background: var(--surface);
-    border-left: 1px solid var(--border);
-    overflow-y: auto;
-    overflow-x: hidden;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
-  }
-
-  .sec { padding: 12px 14px; border-bottom: 1px solid var(--border); }
-
-  .sec-title {
-    font-size: 9px;
-    letter-spacing: 0.14em;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    margin-bottom: 10px;
-  }
-
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-
-  .pbtn {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: inherit;
-    font-size: 10px;
-    padding: 7px 4px;
-    cursor: pointer;
-    border-radius: 3px;
-    text-align: center;
-    transition: background 0.12s, border-color 0.12s, color 0.12s;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-  }
-
-  .pbtn:hover { background: rgba(61,142,255,0.08); border-color: var(--accent); color: #fff; }
-  .pbtn.on { background: rgba(61,142,255,0.14); border-color: var(--accent); color: var(--accent); }
-  .pico { font-size: 16px; line-height: 1; }
-
-  .crow { margin-bottom: 9px; }
-  .crow:last-child { margin-bottom: 0; }
-
-  .clabel {
-    display: flex;
-    justify-content: space-between;
-    font-size: 10px;
-    color: var(--text-dim);
-    margin-bottom: 4px;
-  }
-
-  .clabel .cv { color: var(--text); }
-
-  input[type=range] {
-    width: 100%; height: 3px;
-    -webkit-appearance: none; appearance: none;
-    background: rgba(61,142,255,0.15);
-    border-radius: 2px;
-    cursor: pointer;
-    outline: none;
-  }
-
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 11px; height: 11px;
-    border-radius: 50%;
-    background: var(--accent);
-    cursor: pointer;
-  }
-
-  input[type=range]::-moz-range-thumb {
-    width: 11px; height: 11px;
-    border-radius: 50%;
-    background: var(--accent);
-    border: none; cursor: pointer;
-  }
-
-  .trow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 7px;
-  }
-
-  .trow:last-child { margin-bottom: 0; }
-  .tlabel { font-size: 10px; color: var(--text-dim); }
-
-  .tog { position: relative; width: 30px; height: 15px; }
-  .tog input { opacity: 0; width: 0; height: 0; position: absolute; }
-
-  .tslider {
-    position: absolute; inset: 0;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: 0.15s;
-  }
-
-  .tslider::before {
-    content: '';
-    position: absolute;
-    width: 9px; height: 9px;
-    left: 2px; top: 2px;
-    background: var(--text-dim);
-    border-radius: 50%;
-    transition: 0.15s;
-  }
-
-  .tog input:checked + .tslider { background: rgba(61,142,255,0.2); border-color: var(--accent); }
-  .tog input:checked + .tslider::before { transform: translateX(15px); background: var(--accent); }
-
-  .abtn {
-    width: 100%;
-    padding: 8px 10px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: inherit;
-    font-size: 10px;
-    letter-spacing: 0.06em;
-    cursor: pointer;
-    border-radius: 3px;
-    transition: background 0.12s, border-color 0.12s, color 0.12s;
-    margin-bottom: 5px;
-    text-align: left;
-  }
-
-  .abtn:last-child { margin-bottom: 0; }
-  .abtn:hover { background: rgba(61,142,255,0.08); border-color: rgba(61,142,255,0.4); color: #fff; }
-  .abtn.hi { background: rgba(61,142,255,0.12); border-color: var(--accent); color: var(--accent); }
-  .abtn.hi:hover { background: rgba(61,142,255,0.2); color: #fff; }
-  .abtn.danger:hover { background: rgba(255,60,60,0.08); border-color: rgba(255,60,60,0.35); color: #ff6060; }
-
-  footer {
-    flex: 0 0 38px;
-    display: flex;
-    align-items: center;
-    padding: 0 14px;
-    border-top: 1px solid var(--border);
-    background: var(--surface);
-    font-size: 10px;
-    color: var(--text-dim);
-    gap: 14px;
-    overflow: hidden;
-  }
-
-  .dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: #2dff8a;
-    box-shadow: 0 0 5px #2dff8a;
-    animation: blink 2s infinite;
-    flex-shrink: 0;
-  }
-
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-  .fkeys { margin-left: auto; display: flex; gap: 10px; white-space: nowrap; }
-  kbd { background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 2px; padding: 1px 4px; font-size: 9px; font-family: inherit; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ParticleJS — Test Page</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header>
-  <div class="logo">PARTICLE<em>JS</em> &nbsp;<em>/ v1.0</em></div>
-  <div class="hdiv"></div>
+  <div class="logo">PARTICLE<small>JS &nbsp;/ v1.0</small></div>
+  <div class="vr"></div>
   <div class="stats">
-    <div class="stat" id="sfps"><span class="sl">FPS</span><span class="sv" id="vfps">—</span></div>
-    <div class="stat"><span class="sl">PARTICLES</span><span class="sv" id="vparts">0</span></div>
-    <div class="stat"><span class="sl">EMITTERS</span><span class="sv" id="vemit">0</span></div>
+    <div class="stat" id="s-fps">
+      <span class="stat-label">FPS</span><span class="stat-value" id="v-fps">—</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">PARTICLES</span><span class="stat-value" id="v-parts">0</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">EMITTERS</span><span class="stat-value" id="v-emit">0</span>
+    </div>
   </div>
 </header>
 
 <div class="main">
-  <div class="canvas-wrap" id="cwrap">
-    <canvas id="stage"></canvas>
+  <div class="stage" id="stage">
+    <canvas id="canvas"></canvas>
     <div class="hint" id="hint">CLICK TO SPAWN · DRAG TO STREAM</div>
   </div>
 
   <aside class="sidebar">
-    <div class="sec">
-      <div class="sec-title">Preset</div>
+    <div class="panel">
+      <div class="panel-title">Preset</div>
       <div class="grid2">
-        <button class="pbtn on" data-preset="fire"><span class="pico">🔥</span>fire</button>
-        <button class="pbtn" data-preset="sparkle"><span class="pico">✨</span>sparkle</button>
-        <button class="pbtn" data-preset="smoke"><span class="pico">💨</span>smoke</button>
-        <button class="pbtn" data-preset="snow"><span class="pico">❄️</span>snow</button>
-        <button class="pbtn" data-preset="galaxy"><span class="pico">🌌</span>galaxy</button>
-        <button class="pbtn" data-preset="confetti"><span class="pico">🎊</span>confetti</button>
-        <button class="pbtn" data-preset="explosion"><span class="pico">💥</span>explosion</button>
-        <button class="pbtn" data-preset="bubbles"><span class="pico">🫧</span>bubbles</button>
+        <button class="chip active" data-preset="fire"><span class="chip-icon">🔥</span>fire</button>
+        <button class="chip" data-preset="sparkle"><span class="chip-icon">✨</span>sparkle</button>
+        <button class="chip" data-preset="smoke"><span class="chip-icon">💨</span>smoke</button>
+        <button class="chip" data-preset="snow"><span class="chip-icon">❄️</span>snow</button>
+        <button class="chip" data-preset="galaxy"><span class="chip-icon">🌌</span>galaxy</button>
+        <button class="chip" data-preset="confetti"><span class="chip-icon">🎊</span>confetti</button>
+        <button class="chip" data-preset="explosion"><span class="chip-icon">💥</span>explosion</button>
+        <button class="chip" data-preset="bubbles"><span class="chip-icon">🫧</span>bubbles</button>
       </div>
     </div>
 
-    <div class="sec">
-      <div class="sec-title">Interaction Mode</div>
+    <div class="panel">
+      <div class="panel-title">Interaction Mode</div>
       <div class="grid2">
-        <button class="pbtn on" data-mode="spawn"><span class="pico">🎯</span>spawn</button>
-        <button class="pbtn" data-mode="attractor"><span class="pico">🧲</span>attract</button>
-        <button class="pbtn" data-mode="repel"><span class="pico">💢</span>repel</button>
-        <button class="pbtn" data-mode="vortex"><span class="pico">🌀</span>vortex</button>
+        <button class="chip active" data-mode="spawn"><span class="chip-icon">🎯</span>spawn</button>
+        <button class="chip" data-mode="attractor"><span class="chip-icon">🧲</span>attract</button>
+        <button class="chip" data-mode="repel"><span class="chip-icon">💢</span>repel</button>
+        <button class="chip" data-mode="vortex"><span class="chip-icon">🌀</span>vortex</button>
       </div>
     </div>
 
-    <div class="sec">
-      <div class="sec-title">Parameters</div>
-      <div class="crow">
-        <div class="clabel"><span>Emission Rate</span><span class="cv" id="lrate">60</span></div>
-        <input type="range" id="rate" min="1" max="200" value="60">
+    <div class="panel">
+      <div class="panel-title">Parameters</div>
+      <div class="field">
+        <div class="field-header"><span>Emission Rate</span><span class="field-val" id="l-rate">60</span></div>
+        <input type="range" id="r-rate" min="1" max="200" value="60">
       </div>
-      <div class="crow">
-        <div class="clabel"><span>Particle Life</span><span class="cv" id="llife">1.2s</span></div>
-        <input type="range" id="life" min="1" max="100" value="12">
+      <div class="field">
+        <div class="field-header"><span>Particle Life</span><span class="field-val" id="l-life">1.2s</span></div>
+        <input type="range" id="r-life" min="2" max="120" value="12">
       </div>
-      <div class="crow">
-        <div class="clabel"><span>Particle Size</span><span class="cv" id="lsize">18</span></div>
-        <input type="range" id="size" min="1" max="80" value="18">
+      <div class="field">
+        <div class="field-header"><span>Particle Size</span><span class="field-val" id="l-size">18</span></div>
+        <input type="range" id="r-size" min="2" max="80" value="18">
       </div>
-      <div class="crow">
-        <div class="clabel"><span>Gravity</span><span class="cv" id="lgrav">0.0</span></div>
-        <input type="range" id="grav" min="-200" max="200" value="0">
+      <div class="field">
+        <div class="field-header"><span>Gravity</span><span class="field-val" id="l-grav">0.0</span></div>
+        <input type="range" id="r-grav" min="-200" max="200" value="0">
       </div>
-      <div class="crow">
-        <div class="clabel"><span>Wind</span><span class="cv" id="lwind">0.0</span></div>
-        <input type="range" id="wind" min="-50" max="50" value="0">
+      <div class="field">
+        <div class="field-header"><span>Wind</span><span class="field-val" id="l-wind">0.0</span></div>
+        <input type="range" id="r-wind" min="-50" max="50" value="0">
       </div>
-      <div class="crow">
-        <div class="clabel"><span>Turbulence</span><span class="cv" id="lturb">0.00</span></div>
-        <input type="range" id="turb" min="0" max="100" value="0">
-      </div>
-    </div>
-
-    <div class="sec">
-      <div class="sec-title">Options</div>
-      <div class="trow">
-        <span class="tlabel">Trails</span>
-        <label class="tog"><input type="checkbox" id="otrail"><span class="tslider"></span></label>
-      </div>
-      <div class="trow">
-        <span class="tlabel">Glow</span>
-        <label class="tog"><input type="checkbox" id="oglow" checked><span class="tslider"></span></label>
-      </div>
-      <div class="trow">
-        <span class="tlabel">Fade Background</span>
-        <label class="tog"><input type="checkbox" id="ofade" checked><span class="tslider"></span></label>
-      </div>
-      <div class="trow">
-        <span class="tlabel">Additive Blend</span>
-        <label class="tog"><input type="checkbox" id="oadd" checked><span class="tslider"></span></label>
+      <div class="field">
+        <div class="field-header"><span>Turbulence</span><span class="field-val" id="l-turb">0.00</span></div>
+        <input type="range" id="r-turb" min="0" max="100" value="0">
       </div>
     </div>
 
-    <div class="sec">
-      <div class="sec-title">Actions</div>
-      <button class="abtn hi" id="bbang">⚡ Big Bang Burst</button>
-      <button class="abtn" id="bclrp">Clear Particles</button>
-      <button class="abtn" id="bclre">Clear Emitters</button>
-      <button class="abtn danger" id="breset">Reset All</button>
+    <div class="panel">
+      <div class="panel-title">Options</div>
+      <div class="toggle-row">
+        <span class="toggle-label">Trails</span>
+        <label class="toggle"><input type="checkbox" id="o-trails"><span class="toggle-track"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Glow</span>
+        <label class="toggle"><input type="checkbox" id="o-glow" checked><span class="toggle-track"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Fade Background</span>
+        <label class="toggle"><input type="checkbox" id="o-fade" checked><span class="toggle-track"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Additive Blend</span>
+        <label class="toggle"><input type="checkbox" id="o-additive" checked><span class="toggle-track"></span></label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Actions</div>
+      <button class="btn primary" id="b-bang">⚡ Big Bang Burst</button>
+      <button class="btn" id="b-clrp">Clear Particles</button>
+      <button class="btn" id="b-clre">Clear Emitters</button>
+      <button class="btn danger" id="b-reset">Reset All</button>
     </div>
   </aside>
 </div>
 
 <footer>
-  <div class="dot"></div>
-  <span id="fmode">SPAWN · FIRE</span>
-  <div class="fkeys">
+  <div class="pulse"></div>
+  <span id="footer-status">SPAWN · FIRE</span>
+  <div class="keys">
     <span><kbd>SPACE</kbd> burst</span>
     <span><kbd>C</kbd> clear</span>
     <span><kbd>1–8</kbd> presets</span>
@@ -368,20 +126,20 @@
 <script src="particle.js"></script>
 <script>
 (function () {
-  const P = ParticleJS;
-  const wrap = document.getElementById('cwrap');
-  const canvas = document.getElementById('stage');
+  var P = ParticleJS;
+  var stageEl = document.getElementById('stage');
+  var canvas  = document.getElementById('canvas');
 
-  function syncSize() {
-    canvas.width = wrap.clientWidth;
-    canvas.height = wrap.clientHeight;
+  function syncCanvas() {
+    canvas.width  = stageEl.clientWidth;
+    canvas.height = stageEl.clientHeight;
   }
-  syncSize();
+  syncCanvas();
 
-  const system = new P.ParticleSystem(canvas, { maxParticles: 12000, trackPointer: true });
+  var system = new P.ParticleSystem(canvas, { maxParticles: 12000, trackPointer: true });
 
-  let useFade = true;
-  system.onBeforeDraw = (ctx) => {
+  var useFade = true;
+  system.onBeforeDraw = function(ctx) {
     if (useFade) {
       ctx.fillStyle = 'rgba(4,6,8,0.18)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -392,63 +150,60 @@
 
   system.addBehavior(P.Behaviors.killEdges(120));
 
-  let preset = 'fire';
-  let mode = 'spawn';
-  let activeEm = null;
-  let ixForce = null;
-  let isDown = false;
+  var PRESETS = ['fire','sparkle','smoke','snow','galaxy','confetti','explosion','bubbles'];
+  var preset   = 'fire';
+  var mode     = 'spawn';
+  var activeEm = null;
+  var ixForce  = null;
+  var isDown   = false;
 
-  const presetKeys = ['fire','sparkle','smoke','snow','galaxy','confetti','explosion','bubbles'];
-
-  function opts() {
+  function getOpts() {
     return {
-      rate: +document.getElementById('rate').value,
-      life: +document.getElementById('life').value / 10,
-      size: +document.getElementById('size').value,
-      turbulence: +document.getElementById('turb').value / 100,
-      wind: +document.getElementById('wind').value / 10,
+      rate:       +document.getElementById('r-rate').value,
+      life:       +document.getElementById('r-life').value / 10,
+      size:       +document.getElementById('r-size').value,
+      turbulence: +document.getElementById('r-turb').value / 100,
+      wind:       +document.getElementById('r-wind').value / 10,
     };
   }
 
   function setPreset(name) {
     preset = name;
-    document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('on', b.dataset.preset === name));
-    updateFooter();
+    document.querySelectorAll('[data-preset]').forEach(function(b) {
+      b.classList.toggle('active', b.dataset.preset === name);
+    });
+    updateStatus();
   }
 
   function setMode(m) {
     mode = m;
-    document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
-    const hints = { spawn: 'CLICK TO SPAWN · DRAG TO STREAM', attractor: 'HOLD TO ATTRACT', repel: 'HOLD TO REPEL', vortex: 'HOLD TO VORTEX' };
+    document.querySelectorAll('[data-mode]').forEach(function(b) {
+      b.classList.toggle('active', b.dataset.mode === m);
+    });
+    var hints = { spawn:'CLICK TO SPAWN · DRAG TO STREAM', attractor:'HOLD TO ATTRACT', repel:'HOLD TO REPEL', vortex:'HOLD TO VORTEX' };
     document.getElementById('hint').textContent = hints[m] || '';
-    updateFooter();
+    updateStatus();
   }
 
-  function updateFooter() {
-    document.getElementById('fmode').textContent = mode.toUpperCase() + ' · ' + preset.toUpperCase();
+  function updateStatus() {
+    document.getElementById('footer-status').textContent = mode.toUpperCase() + ' · ' + preset.toUpperCase();
   }
 
-  function clearDynamicForces() {
-    system.forces = system.forces.filter(f =>
-      !(f instanceof P.GravityForce) && !(f instanceof P.WindForce) &&
-      !(f instanceof P.VortexForce) && !(f instanceof P.AttractorForce) &&
-      !(f instanceof P.BuoyancyForce)
-    );
+  function clearPresetForces() {
+    system.forces = system.forces.filter(function(f) {
+      return !(f instanceof P.GravityForce) && !(f instanceof P.WindForce) &&
+             !(f instanceof P.VortexForce)  && !(f instanceof P.AttractorForce) &&
+             !(f instanceof P.BuoyancyForce);
+    });
   }
 
   function spawnAt(x, y) {
-    const o = opts();
-    const isBurst = preset === 'confetti' || preset === 'explosion';
-
-    if (!isBurst) {
-      system.clearEmitters();
-      clearDynamicForces();
-    }
-
+    var o = getOpts();
+    var isBurst = preset === 'confetti' || preset === 'explosion';
+    if (!isBurst) { system.clearEmitters(); clearPresetForces(); }
     if (preset === 'snow') {
-      system.clearEmitters();
-      system.forces = [];
-      system.usePreset('snow', canvas.width, o);
+      system.clearEmitters(); system.forces = [];
+      system.usePreset('snow', 0, 0, Object.assign({ width: canvas.width }, o));
       activeEm = null;
     } else {
       system.usePreset(preset, x, y, o);
@@ -456,106 +211,105 @@
     }
   }
 
-  function addIxForce(x, y) {
-    if (ixForce) system.removeForce(ixForce);
-    ixForce = null;
-    if (mode === 'attractor') ixForce = new P.AttractorForce(x, y, 60, 180, 'linear');
-    else if (mode === 'repel') ixForce = new P.RepellerForce(x, y, 90, 180, 'linear');
-    else if (mode === 'vortex') ixForce = new P.VortexForce(x, y, 40, 180);
+  function applyIxForce(x, y) {
+    if (ixForce) { system.removeForce(ixForce); ixForce = null; }
+    if      (mode === 'attractor') ixForce = new P.AttractorForce(x, y, 60, 180, 'linear');
+    else if (mode === 'repel')     ixForce = new P.RepellerForce(x, y, 90, 180, 'linear');
+    else if (mode === 'vortex')    ixForce = new P.VortexForce(x, y, 40, 180);
     if (ixForce) system.addForce(ixForce);
   }
 
+  function releaseIx() { if (ixForce) { system.removeForce(ixForce); ixForce = null; } }
+
   function getXY(e) {
-    const r = canvas.getBoundingClientRect();
-    const s = e.touches ? e.touches[0] : e;
+    var r = canvas.getBoundingClientRect(), s = e.touches ? e.touches[0] : e;
     return { x: s.clientX - r.left, y: s.clientY - r.top };
   }
 
-  canvas.addEventListener('mousedown', e => {
-    isDown = true;
-    const p = getXY(e);
-    if (mode === 'spawn') spawnAt(p.x, p.y); else addIxForce(p.x, p.y);
+  canvas.addEventListener('mousedown', function(e) {
+    isDown = true; var p = getXY(e);
+    if (mode === 'spawn') spawnAt(p.x, p.y); else applyIxForce(p.x, p.y);
   });
 
-  canvas.addEventListener('touchstart', e => {
-    e.preventDefault(); isDown = true;
-    const p = getXY(e);
-    if (mode === 'spawn') spawnAt(p.x, p.y); else addIxForce(p.x, p.y);
+  canvas.addEventListener('touchstart', function(e) {
+    e.preventDefault(); isDown = true; var p = getXY(e);
+    if (mode === 'spawn') spawnAt(p.x, p.y); else applyIxForce(p.x, p.y);
   }, { passive: false });
 
-  canvas.addEventListener('mousemove', e => {
-    if (!isDown) return;
-    const p = getXY(e);
+  canvas.addEventListener('mousemove', function(e) {
+    if (!isDown) return; var p = getXY(e);
     if (mode === 'spawn' && activeEm) { activeEm.x = p.x; activeEm.y = p.y; }
     else if (ixForce) { ixForce.x = p.x; ixForce.y = p.y; }
   });
 
-  canvas.addEventListener('touchmove', e => {
-    e.preventDefault();
-    if (!isDown) return;
-    const p = getXY(e);
+  canvas.addEventListener('touchmove', function(e) {
+    e.preventDefault(); if (!isDown) return; var p = getXY(e);
     if (mode === 'spawn' && activeEm) { activeEm.x = p.x; activeEm.y = p.y; }
     else if (ixForce) { ixForce.x = p.x; ixForce.y = p.y; }
   }, { passive: false });
 
-  window.addEventListener('mouseup', () => {
-    isDown = false;
-    if (ixForce) { system.removeForce(ixForce); ixForce = null; }
+  window.addEventListener('mouseup',  function() { isDown = false; releaseIx(); });
+  window.addEventListener('touchend', function() { isDown = false; releaseIx(); });
+
+  document.querySelectorAll('[data-preset]').forEach(function(b) {
+    b.addEventListener('click', function() { setPreset(b.dataset.preset); });
+  });
+  document.querySelectorAll('[data-mode]').forEach(function(b) {
+    b.addEventListener('click', function() { setMode(b.dataset.mode); });
   });
 
-  window.addEventListener('touchend', () => {
-    isDown = false;
-    if (ixForce) { system.removeForce(ixForce); ixForce = null; }
-  });
-
-  document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => setPreset(b.dataset.preset)));
-  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
-
-  function bindRange(id, labelId, fmt) {
-    const el = document.getElementById(id);
-    const lb = document.getElementById(labelId);
-    const upd = () => { lb.textContent = fmt(+el.value); };
-    el.addEventListener('input', upd);
-    upd();
+  function bindSlider(sid, lid, fmt) {
+    var sl = document.getElementById(sid), lb = document.getElementById(lid);
+    function upd() { lb.textContent = fmt(+sl.value); }
+    sl.addEventListener('input', upd); upd();
   }
+  bindSlider('r-rate', 'l-rate', function(v) { return Math.round(v); });
+  bindSlider('r-life', 'l-life', function(v) { return (v/10).toFixed(1)+'s'; });
+  bindSlider('r-size', 'l-size', function(v) { return Math.round(v); });
+  bindSlider('r-grav', 'l-grav', function(v) { return (v/10).toFixed(1); });
+  bindSlider('r-wind', 'l-wind', function(v) { return (v/10).toFixed(1); });
+  bindSlider('r-turb', 'l-turb', function(v) { return (v/100).toFixed(2); });
 
-  bindRange('rate', 'lrate', v => Math.round(v));
-  bindRange('life', 'llife', v => (v / 10).toFixed(1) + 's');
-  bindRange('size', 'lsize', v => Math.round(v));
-  bindRange('grav', 'lgrav', v => (v / 10).toFixed(1));
-  bindRange('wind', 'lwind', v => (v / 10).toFixed(1));
-  bindRange('turb', 'lturb', v => (v / 100).toFixed(2));
+  document.getElementById('o-fade').addEventListener('change', function(e) { useFade = e.target.checked; });
 
-  document.getElementById('ofade').addEventListener('change', e => { useFade = e.target.checked; });
-
-  document.getElementById('bbang').addEventListener('click', () => {
-    const cx = canvas.width / 2, cy = canvas.height / 2;
-    system.usePreset('explosion', cx, cy, { count: 150 });
-    setTimeout(() => system.usePreset('confetti', cx, cy - 60, { count: 100 }), 80);
+  document.getElementById('b-bang').addEventListener('click', function() {
+    var cx = canvas.width/2, cy = canvas.height/2;
+    system.usePreset('explosion', cx, cy, { count: 160 });
+    setTimeout(function() { system.usePreset('confetti', cx, cy-60, { count: 100 }); }, 80);
+  });
+  document.getElementById('b-clrp').addEventListener('click', function() { system.clearParticles(); });
+  document.getElementById('b-clre').addEventListener('click', function() { system.clearEmitters(); activeEm = null; });
+  document.getElementById('b-reset').addEventListener('click', function() {
+    system.clear(); system.forces = []; activeEm = null; ixForce = null;
   });
 
-  document.getElementById('bclrp').addEventListener('click', () => system.clearParticles());
-  document.getElementById('bclre').addEventListener('click', () => { system.clearEmitters(); activeEm = null; });
-  document.getElementById('breset').addEventListener('click', () => { system.clear(); system.forces = []; activeEm = null; ixForce = null; });
-
-  document.addEventListener('keydown', e => {
-    if (e.key === ' ') { e.preventDefault(); spawnAt(canvas.width / 2, canvas.height / 2); }
+  document.addEventListener('keydown', function(e) {
+    if (e.key === ' ') { e.preventDefault(); spawnAt(canvas.width/2, canvas.height/2); }
     if (e.key === 'c' || e.key === 'C') system.clearParticles();
-    const n = parseInt(e.key);
-    if (n >= 1 && n <= 8) setPreset(presetKeys[n - 1]);
+    var n = parseInt(e.key);
+    if (n >= 1 && n <= 8) setPreset(PRESETS[n-1]);
   });
 
-  setInterval(() => {
-    document.getElementById('vfps').textContent = system.stats.fps;
-    document.getElementById('vparts').textContent = system.stats.particles.toLocaleString();
-    document.getElementById('vemit').textContent = system.stats.emitters;
-  }, 100);
+  setInterval(function() {
+    document.getElementById('v-fps').textContent   = system.stats.fps;
+    document.getElementById('v-parts').textContent = system.stats.particles.toLocaleString();
+    document.getElementById('v-emit').textContent  = system.stats.emitters;
+  }, 150);
 
-  new ResizeObserver(() => { syncSize(); system.width = canvas.width; system.height = canvas.height; }).observe(wrap);
+  new ResizeObserver(function() {
+    syncCanvas();
+    system.width  = canvas.width;
+    system.height = canvas.height;
+  }).observe(stageEl);
 
   system.start();
-  setTimeout(() => spawnAt(canvas.width / 2, canvas.height * 0.6), 150);
-  updateFooter();
+
+  requestAnimationFrame(function() {
+    syncCanvas();
+    spawnAt(canvas.width/2, canvas.height * 0.6);
+  });
+
+  updateStatus();
 })();
 </script>
 </body>
