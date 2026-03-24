@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ParticleJS — Advanced Particle Engine</title>
+<style>
+  @import url('https:
+  :root {
+    --bg: #040608;
+    --surface: #0a0d12;
+    --border: rgba(80,140,255,0.12);
+    --accent: #3d8eff;
+    --accent2: #ff6b35;
+    --accent3: #a259ff;
+    --text: #c8d8f0;
+    --text-dim: #4a6080;
+    --mono: 'Syne Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    overflow: hidden;
+  }
+  .app {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    grid-template-rows: 56px 1fr 44px;
+    height: 100vh;
+    gap: 0;
+  }
+  header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(4,6,8,0.9);
+    backdrop-filter: blur(12px);
+    gap: 24px;
+    z-index: 10;
+  }
+  .logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+  .logo span {
+    color: var(--text-dim);
+    font-size: 11px;
+  }
+  .header-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+  }
+  .stats-bar {
+    display: flex;
+    gap: 20px;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .stat {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .stat-label { color: var(--text-dim); }
+  .stat-value { color: var(--accent); font-weight: 600; }
+  #stat-fps .stat-value { color: #2dff8a; }
+  .header-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+  }
+  .canvas-wrap {
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  canvas#stage {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+  }
+  .canvas-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 110%, rgba(61,142,255,0.04) 0%, transparent 70%),
+      linear-gradient(180deg, rgba(4,6,8,0.3) 0%, transparent 10%, transparent 90%, rgba(4,6,8,0.4) 100%);
+  }
+  .crosshair-hint {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    pointer-events: none;
+  }
+  .sidebar {
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar-section {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-section:last-child { border-bottom: none; }
+  .section-title {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .preset-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .preset-btn {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 8px 6px;
+    cursor: pointer;
+    border-radius: 4px;
+    text-align: center;
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .preset-btn:hover {
+    background: rgba(61,142,255,0.08);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .preset-btn.active {
+    background: rgba(61,142,255,0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .preset-icon { font-size: 18px; line-height: 1; }
+  .control-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+  .control-row:last-child { margin-bottom: 0; }
+  .control-label {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .control-label .val { color: var(--text); }
+  input[type=range] {
+    width: 100%;
+    height: 3px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(61,142,255,0.15);
+    border-radius: 2px;
+    cursor: pointer;
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(61,142,255,0.5);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: none;
+  }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .toggle-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .toggle {
+    position: relative;
+    width: 32px;
+    height: 16px;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    left: 2px;
+    top: 2px;
+    background: var(--text-dim);
+    border-radius: 50%;
+    transition: 0.2s;
+  }
+  .toggle input:checked + .toggle-slider { background: rgba(61,142,255,0.2); border-color: var(--accent); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(16px); background: var(--accent); }
+  .action-btn {
+    width: 100%;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s;
+    margin-bottom: 6px;
+  }
+  .action-btn:last-child { margin-bottom: 0; }
+  .action-btn:hover {
+    background: rgba(61,142,255,0.08);
+    border-color: rgba(61,142,255,0.5);
+    color: #fff;
+  }
+  .action-btn.danger:hover {
+    background: rgba(255,60,60,0.08);
+    border-color: rgba(255,60,60,0.4);
+    color: #ff6060;
+  }
+  .action-btn.accent {
+    background: rgba(61,142,255,0.12);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .action-btn.accent:hover {
+    background: rgba(61,142,255,0.2);
+    color: #fff;
+  }
+  footer {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    gap: 16px;
+  }
+  .mode-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .mode-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #2dff8a;
+    box-shadow: 0 0 6px #2dff8a;
+    animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .footer-keys {
+    margin-left: auto;
+    display: flex;
+    gap: 12px;
+  }
+  kbd {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 9px;
+  }
+  .info-popup {
+    position: absolute;
+    bottom: 36px;
+    left: 12px;
+    background: rgba(10,13,18,0.92);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    pointer-events: none;
+    transition: opacity 0.3s;
+    opacity: 0;
+    max-width: 260px;
+    line-height: 1.7;
+    z-index: 100;
+  }
+  .info-popup.show { opacity: 1; }
+  .info-popup strong { color: var(--accent); font-weight: normal; }
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-track { background: transparent; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">PARTICLE<span>JS</span> &nbsp;<span>/ v1.0</span></div>
+    <div class="header-divider"></div>
+    <div class="stats-bar">
+      <div class="stat" id="stat-fps">
+        <span class="stat-label">FPS</span>
+        <span class="stat-value" id="fps-val">—</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">PARTICLES</span>
+        <span class="stat-value" id="particle-val">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">EMITTERS</span>
+        <span class="stat-value" id="emitter-val">0</span>
+      </div>
+    </div>
+  </header>
+  <div class="canvas-wrap" id="canvas-wrap">
+    <canvas id="stage"></canvas>
+    <div class="canvas-overlay"></div>
+    <div class="crosshair-hint" id="mode-hint">CLICK TO SPAWN · DRAG TO STREAM</div>
+    <div class="info-popup" id="info-popup"></div>
+  </div>
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="section-title">Presets</div>
+      <div class="preset-grid">
+        <button class="preset-btn active" data-preset="fire">
+          <span class="preset-icon">🔥</span>fire
+        </button>
+        <button class="preset-btn" data-preset="sparkle">
+          <span class="preset-icon">✨</span>sparkle
+        </button>
+        <button class="preset-btn" data-preset="smoke">
+          <span class="preset-icon">💨</span>smoke
+        </button>
+        <button class="preset-btn" data-preset="snow">
+          <span class="preset-icon">❄️</span>snow
+        </button>
+        <button class="preset-btn" data-preset="galaxy">
+          <span class="preset-icon">🌌</span>galaxy
+        </button>
+        <button class="preset-btn" data-preset="confetti">
+          <span class="preset-icon">🎊</span>confetti
+        </button>
+        <button class="preset-btn" data-preset="explosion">
+          <span class="preset-icon">💥</span>explosion
+        </button>
+        <button class="preset-btn" data-preset="bubbles">
+          <span class="preset-icon">🫧</span>bubbles
+        </button>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="section-title">Interaction Mode</div>
+      <div class="preset-grid" id="mode-grid">
+        <button class="preset-btn active" data-mode="spawn">
+          <span class="preset-icon">🎯</span>spawn
+        </button>
+        <button class="preset-btn" data-mode="attractor">
+          <span class="preset-icon">🧲</span>attract
+        </button>
+        <button class="preset-btn" data-mode="repel">
+          <span class="preset-icon">💢</span>repel
+        </button>
+        <button class="preset-btn" data-mode="vortex">
+          <span class="preset-icon">🌀</span>vortex
+        </button>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="section-title">Parameters</div>
+      <div class="control-row">
+        <div class="control-label"><span>Emission Rate</span><span class="val" id="rate-val">60</span></div>
+        <input type="range" id="ctrl-rate" min="1" max="200" value="60">
+      </div>
+      <div class="control-row">
+        <div class="control-label"><span>Particle Life</span><span class="val" id="life-val">1.2s</span></div>
+        <input type="range" id="ctrl-life" min="1" max="100" value="12">
+      </div>
+      <div class="control-row">
+        <div class="control-label"><span>Particle Size</span><span class="val" id="size-val">18</span></div>
+        <input type="range" id="ctrl-size" min="1" max="80" value="18">
+      </div>
+      <div class="control-row">
+        <div class="control-label"><span>Gravity</span><span class="val" id="grav-val">0</span></div>
+        <input type="range" id="ctrl-gravity" min="-200" max="200" value="0">
+      </div>
+      <div class="control-row">
+        <div class="control-label"><span>Wind</span><span class="val" id="wind-val">0</span></div>
+        <input type="range" id="ctrl-wind" min="-5" max="5" value="0" step="0.1">
+      </div>
+      <div class="control-row">
+        <div class="control-label"><span>Turbulence</span><span class="val" id="turb-val">0</span></div>
+        <input type="range" id="ctrl-turbulence" min="0" max="100" value="0">
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="section-title">Options</div>
+      <div class="toggle-row">
+        <span class="toggle-label">Trails</span>
+        <label class="toggle"><input type="checkbox" id="opt-trails"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Glow</span>
+        <label class="toggle"><input type="checkbox" id="opt-glow" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Fade Background</span>
+        <label class="toggle"><input type="checkbox" id="opt-fade" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Additive Blend</span>
+        <label class="toggle"><input type="checkbox" id="opt-additive" checked><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="section-title">Actions</div>
+      <button class="action-btn accent" id="btn-big-burst">⚡ Big Bang Burst</button>
+      <button class="action-btn" id="btn-clear-particles">Clear Particles</button>
+      <button class="action-btn" id="btn-clear-emitters">Clear Emitters</button>
+      <button class="action-btn danger" id="btn-clear-all">Reset All</button>
+    </div>
+  </aside>
+  <footer>
+    <div class="mode-indicator">
+      <div class="mode-dot"></div>
+      <span id="footer-mode">SPAWN MODE · FIRE</span>
+    </div>
+    <div class="footer-keys">
+      <span><kbd>SPACE</kbd> burst</span>
+      <span><kbd>C</kbd> clear</span>
+      <span><kbd>1-8</kbd> presets</span>
+    </div>
+  </footer>
+</div>
+<script src="particle.js"></script>
+<script>
+(function() {
+  const P = ParticleJS;
+  const wrap = document.getElementById('canvas-wrap');
+  const canvas = document.getElementById('stage');
+  function resizeCanvas() {
+    canvas.width = wrap.clientWidth;
+    canvas.height = wrap.clientHeight;
+  }
+  resizeCanvas();
+  const system = new P.ParticleSystem(canvas, {
+    maxParticles: 12000,
+    background: 'rgba(4,6,8,0.18)',
+    backgroundAlpha: 1,
+    trackPointer: true,
+  });
+  let useFade = true;
+  let useAdditive = true;
+  system.onBeforeDraw = (ctx, sys) => {
+    const { width, height } = canvas;
+    if (useFade) {
+      ctx.fillStyle = 'rgba(4,6,8,0.18)';
+      ctx.fillRect(0, 0, width, height);
+    } else {
+      ctx.clearRect(0, 0, width, height);
+    }
+  };
+  let currentPreset = 'fire';
+  let currentMode = 'spawn';
+  let activeEmitter = null;
+  let interactForce = null;
+  const presetOptions = () => ({
+    rate: parseFloat(document.getElementById('ctrl-rate').value),
+    life: parseFloat(document.getElementById('ctrl-life').value) / 10,
+    size: parseFloat(document.getElementById('ctrl-size').value),
+    turbulence: parseFloat(document.getElementById('ctrl-turbulence').value) / 100,
+    wind: parseFloat(document.getElementById('ctrl-wind').value) * 0.5,
+  });
+  function setPreset(name) {
+    currentPreset = name;
+    document.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('active', b.dataset.preset === name));
+    updateFooter();
+    showInfoPopup(`Preset: ${name.toUpperCase()}`, 1500);
+  }
+  function setMode(mode) {
+    currentMode = mode;
+    document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    updateFooter();
+    const hints = { spawn: 'CLICK TO SPAWN · DRAG TO STREAM', attractor: 'CLICK + HOLD TO ATTRACT', repel: 'CLICK + HOLD TO REPEL', vortex: 'CLICK + HOLD TO VORTEX' };
+    document.getElementById('mode-hint').textContent = hints[mode] || '';
+  }
+  function updateFooter() {
+    document.getElementById('footer-mode').textContent = `${currentMode.toUpperCase()} MODE · ${currentPreset.toUpperCase()}`;
+  }
+  let infoTimeout;
+  function showInfoPopup(msg, duration = 2000) {
+    const el = document.getElementById('info-popup');
+    el.innerHTML = msg;
+    el.classList.add('show');
+    clearTimeout(infoTimeout);
+    infoTimeout = setTimeout(() => el.classList.remove('show'), duration);
+  }
+  function spawnPresetAt(x, y) {
+    if (currentPreset === 'snow') {
+      system.clearEmitters();
+      const { width } = canvas;
+      const opts = presetOptions();
+      system.usePreset('snow', width, opts);
+      return;
+    }
+    if (activeEmitter) {
+      activeEmitter.active = false;
+      activeEmitter = null;
+    }
+    const opts = presetOptions();
+    if (!['confetti', 'explosion'].includes(currentPreset)) {
+      system.clearEmitters();
+      system.forces = system.forces.filter(f =>
+        !(f instanceof P.GravityForce) &&
+        !(f instanceof P.WindForce) &&
+        !(f instanceof P.VortexForce) &&
+        !(f instanceof P.AttractorForce) &&
+        !(f instanceof P.BuoyancyForce)
+      );
+      system.usePreset(currentPreset, x, y, opts);
+      activeEmitter = system.emitters[system.emitters.length - 1];
+    } else {
+      system.usePreset(currentPreset, x, y, opts);
+    }
+  }
+  let isPointerDown = false;
+  let lastPointerX = 0, lastPointerY = 0;
+  function getPos(e) {
+    const r = canvas.getBoundingClientRect();
+    const src = e.touches ? e.touches[0] : e;
+    return { x: src.clientX - r.left, y: src.clientY - r.top };
+  }
+  canvas.addEventListener('mousedown', e => { isPointerDown = true; handlePointerStart(e); });
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); isPointerDown = true; handlePointerStart(e); }, { passive: false });
+  canvas.addEventListener('mousemove', e => { if (isPointerDown) handlePointerMove(e); });
+  canvas.addEventListener('touchmove', e => { e.preventDefault(); if (isPointerDown) handlePointerMove(e); }, { passive: false });
+  window.addEventListener('mouseup', handlePointerEnd);
+  window.addEventListener('touchend', handlePointerEnd);
+  function handlePointerStart(e) {
+    const { x, y } = getPos(e);
+    lastPointerX = x; lastPointerY = y;
+    if (currentMode === 'spawn') {
+      spawnPresetAt(x, y);
+    } else {
+      addInteractForce(x, y);
+    }
+  }
+  function handlePointerMove(e) {
+    const { x, y } = getPos(e);
+    lastPointerX = x; lastPointerY = y;
+    if (currentMode === 'spawn') {
+      if (activeEmitter) {
+        activeEmitter.x = x;
+        activeEmitter.y = y;
+      }
+    } else if (interactForce) {
+      interactForce.x = x;
+      interactForce.y = y;
+    }
+  }
+  function handlePointerEnd() {
+    isPointerDown = false;
+    if (interactForce) {
+      system.removeForce(interactForce);
+      interactForce = null;
+    }
+    if (currentMode === 'spawn' && activeEmitter && !['confetti', 'explosion'].includes(currentPreset)) {
+    }
+  }
+  function addInteractForce(x, y) {
+    if (interactForce) system.removeForce(interactForce);
+    const strength = 60;
+    const radius = 180;
+    switch (currentMode) {
+      case 'attractor':
+        interactForce = new P.AttractorForce(x, y, strength, radius, 'linear');
+        break;
+      case 'repel':
+        interactForce = new P.RepellerForce(x, y, strength * 1.5, radius, 'linear');
+        break;
+      case 'vortex':
+        interactForce = new P.VortexForce(x, y, 40, radius);
+        break;
+    }
+    if (interactForce) system.addForce(interactForce);
+  }
+  function bindRange(id, labelId, transform, unit = '') {
+    const el = document.getElementById(id);
+    const label = document.getElementById(labelId);
+    el.addEventListener('input', () => {
+      const v = transform(parseFloat(el.value));
+      label.textContent = v + unit;
+    });
+    const v = transform(parseFloat(el.value));
+    label.textContent = v + unit;
+  }
+  bindRange('ctrl-rate', 'rate-val', v => Math.round(v));
+  bindRange('ctrl-life', 'life-val', v => (v / 10).toFixed(1), 's');
+  bindRange('ctrl-size', 'size-val', v => Math.round(v));
+  bindRange('ctrl-gravity', 'grav-val', v => (v / 10).toFixed(1));
+  bindRange('ctrl-wind', 'wind-val', v => v.toFixed(1));
+  bindRange('ctrl-turbulence', 'turb-val', v => (v / 100).toFixed(2));
+  document.querySelectorAll('[data-preset]').forEach(btn => {
+    btn.addEventListener('click', () => setPreset(btn.dataset.preset));
+  });
+  document.querySelectorAll('[data-mode]').forEach(btn => {
+    btn.addEventListener('click', () => setMode(btn.dataset.mode));
+  });
+  document.getElementById('opt-trails').addEventListener('change', e => {
+  });
+  document.getElementById('opt-glow').addEventListener('change', e => {
+  });
+  document.getElementById('opt-fade').addEventListener('change', e => {
+    useFade = e.target.checked;
+  });
+  document.getElementById('opt-additive').addEventListener('change', e => {
+    useAdditive = e.target.checked;
+  });
+  document.getElementById('btn-big-burst').addEventListener('click', () => {
+    const cx = canvas.width / 2, cy = canvas.height / 2;
+    const opts = presetOptions();
+    system.usePreset('explosion', cx, cy, { count: 150, ...opts });
+    setTimeout(() => system.usePreset('confetti', cx, cy - 50, { count: 100 }), 80);
+    showInfoPopup('<strong>BIG BANG</strong> · 150 particles detonated', 2000);
+  });
+  document.getElementById('btn-clear-particles').addEventListener('click', () => {
+    system.clearParticles();
+    showInfoPopup('Particles cleared', 1000);
+  });
+  document.getElementById('btn-clear-emitters').addEventListener('click', () => {
+    system.clearEmitters();
+    activeEmitter = null;
+    showInfoPopup('Emitters cleared', 1000);
+  });
+  document.getElementById('btn-clear-all').addEventListener('click', () => {
+    system.clear();
+    system.clearForces();
+    activeEmitter = null;
+    interactForce = null;
+    showInfoPopup('System reset', 1000);
+  });
+  const presetKeys = ['fire', 'sparkle', 'smoke', 'snow', 'galaxy', 'confetti', 'explosion', 'bubbles'];
+  document.addEventListener('keydown', e => {
+    if (e.key === ' ') {
+      e.preventDefault();
+      const cx = canvas.width / 2, cy = canvas.height / 2;
+      spawnPresetAt(cx, cy);
+    }
+    if (e.key === 'c' || e.key === 'C') system.clearParticles();
+    const n = parseInt(e.key);
+    if (n >= 1 && n <= 8) setPreset(presetKeys[n - 1]);
+  });
+  setInterval(() => {
+    document.getElementById('fps-val').textContent = system.stats.fps;
+    document.getElementById('particle-val').textContent = system.stats.particles.toLocaleString();
+    document.getElementById('emitter-val').textContent = system.stats.emitters;
+  }, 100);
+  const ro = new ResizeObserver(() => {
+    resizeCanvas();
+    system.width = canvas.width;
+    system.height = canvas.height;
+  });
+  ro.observe(wrap);
+  system.addBehavior(P.Behaviors.killEdges(100));
+  system.start();
+  setTimeout(() => {
+    const cx = canvas.width / 2;
+    const cy = canvas.height * 0.6;
+    setPreset('fire');
+    spawnPresetAt(cx, cy);
+    showInfoPopup('<strong>PARTICLE</strong>JS loaded — click canvas to spawn particles', 3000);
+  }, 200);
+  updateFooter();
+})();
+</script>
+</body>
+</html>
